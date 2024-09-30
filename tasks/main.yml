@@ -1,0 +1,64 @@
+---
+- name: Ensure .ssh directory exists
+  file:
+    path: "{{ home_dir }}/{{ ssh_directory }}"
+    state: directory
+    mode: '0700'
+    owner: "{{ user }}"
+    group: "{{ user }}"
+  register: ssh_dir
+
+- name: Debug .ssh directory creation
+  debug:
+    msg: "Created .ssh directory at {{ home_dir }}/{{ ssh_directory }} for user {{ user }}."
+  when: ssh_dir.changed
+
+- name: Check if BWS_ACCESS_TOKEN is set
+  fail:
+    msg: "BWS_ACCESS_TOKEN is not set. Please set it and re-run the playbook."
+  when: lookup('env', 'BWS_ACCESS_TOKEN') == ''
+
+- name: Prompt for Bitwarden secret ID
+  pause:
+    prompt: "Enter the Bitwarden secret ID for the SSH key"
+  register: secret_id
+
+- name: Pull SSH key from Bitwarden
+  command: "bws secret get {{ secret_id.user_input }}"
+  register: bitwarden_item
+  no_log: true
+  environment:
+    BWS_ACCESS_TOKEN: "{{ lookup('env', 'BWS_ACCESS_TOKEN') }}"
+  ignore_errors: yes
+
+- name: Debug Bitwarden item retrieval
+  debug:
+    msg: "Retrieved SSH key from Bitwarden for secret ID {{ secret_id.user_input }}."
+  when: bitwarden_item is defined and bitwarden_item.stdout != ''
+
+- name: Parse SSH key from Bitwarden item
+  set_fact:
+    ssh_key: "{{ (bitwarden_item.stdout | from_json).value }}"
+  when: bitwarden_item is defined and bitwarden_item.stdout != ''
+  no_log: true
+
+- name: Debug SSH key parsing
+  debug:
+    msg: "Parsed SSH key from Bitwarden item."
+  when: ssh_key is defined and ssh_key != ''
+
+- name: Save SSH key to file
+  copy:
+    content: "{{ ssh_key }}"
+    dest: "{{ home_dir }}/{{ ssh_directory }}/{{ ssh_key_name}}"
+    mode: '0600'
+    owner: "{{ user }}"
+    group: "{{ user }}"
+  register: ssh_key_file
+  when: ssh_key is defined and ssh_key != ''
+
+- name: Debug SSH key file creation
+  debug:
+    msg: "Saved SSH key to {{ home_dir }}/{{ ssh_directory }}/{{ ssh_key_name}}."
+  when: ssh_key_file.changed
+
