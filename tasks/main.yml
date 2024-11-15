@@ -50,7 +50,7 @@
 - name: Save SSH key to file
   copy:
     content: "{{ ssh_key }}"
-    dest: "{{ home_dir }}/{{ ssh_directory }}/{{ ssh_key_name}}"
+    dest: "{{ home_dir }}/{{ ssh_directory }}/personal/{{ ssh_key_name}}"
     mode: '0600'
     owner: "{{ user }}"
     group: "{{ user }}"
